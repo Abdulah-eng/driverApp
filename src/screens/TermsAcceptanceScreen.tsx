@@ -15,7 +15,7 @@ const TermsAcceptanceScreen = ({navigation}: any) => {
 
   const handleContinue = () => {
     if (agreed) {
-      navigation.navigate('WelcomeScreen');
+      navigation.navigate('Welcome');
     }
   };
 

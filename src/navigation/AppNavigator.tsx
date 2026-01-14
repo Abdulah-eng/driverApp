@@ -90,59 +90,50 @@ const MainTabs = () => {
 };
 
 const AppNavigator = () => {
-  // TODO: Add authentication check
-  const isAuthenticated = true; // Set to true to skip auth for now
-  const hasSeenOnboarding = false; // TODO: Get from AsyncStorage
-
   return (
     <Stack.Navigator screenOptions={{headerShown: false}}>
-      {!hasSeenOnboarding ? (
-        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-      ) : !isAuthenticated ? (
-        <>
-          <Stack.Screen name="PhoneVerification" component={PhoneVerificationScreen} />
-          <Stack.Screen name="EmailLogin" component={EmailLoginScreen} />
-          <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
-          <Stack.Screen name="TermsAcceptance" component={TermsAcceptanceScreen} />
-          <Stack.Screen name="Welcome" component={WelcomeScreen} />
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Signup" component={SignupScreen} />
-          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-        </>
-      ) : (
-        <>
-          <Stack.Screen name="MainTabs" component={MainTabs} />
-          <Stack.Screen name="PlanRoute" component={PlanRouteScreen} />
-          <Stack.Screen name="RideSelection" component={RideSelectionScreen} />
-          <Stack.Screen name="AssigningDriver" component={AssigningDriverScreen} />
-          <Stack.Screen name="ActiveTrip" component={ActiveTripScreen} />
-          <Stack.Screen name="TripRequest" component={TripRequestScreen} />
-          <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
-          <Stack.Screen name="Rating" component={RatingScreen} />
-          <Stack.Screen name="Notifications" component={NotificationsScreen} />
-          <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
-          <Stack.Screen name="LiveChat" component={LiveChatScreen} />
-          <Stack.Screen name="Settings" component={SettingsScreen} />
-          <Stack.Screen name="TripCompletion" component={TripCompletionScreen} />
-          <Stack.Screen name="TripReceipt" component={TripReceiptScreen} />
-          <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-          <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} />
-          <Stack.Screen name="PaymentsManagement" component={PaymentsManagementScreen} />
-          <Stack.Screen name="AddCryptoAddress" component={AddCryptoAddressScreen} />
-          <Stack.Screen name="Wallet" component={WalletScreen} />
-          <Stack.Screen name="VehicleManagement" component={VehicleManagementScreen} />
-          <Stack.Screen name="DocumentUpload" component={DocumentUploadScreen} />
-          <Stack.Screen name="Referral" component={ReferralScreen} />
-          <Stack.Screen name="SafetyCenter" component={SafetyCenterScreen} />
-          <Stack.Screen name="ScheduleRide" component={ScheduleRideScreen} />
-          <Stack.Screen name="CargoRequirements" component={CargoRequirementsScreen} />
-          <Stack.Screen name="MOVOPass" component={MOVOPassScreen} />
-          <Stack.Screen name="VehicleInfo" component={VehicleInfoScreen} />
-          <Stack.Screen name="HelpArticle" component={HelpArticleScreen} />
-          <Stack.Screen name="SafetyTips" component={SafetyTipsScreen} />
-          <Stack.Screen name="About" component={AboutScreen} />
-        </>
-      )}
+      {/* Onboarding & Auth Screens */}
+      <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+      <Stack.Screen name="PhoneVerification" component={PhoneVerificationScreen} />
+      <Stack.Screen name="EmailLogin" component={EmailLoginScreen} />
+      <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
+      <Stack.Screen name="TermsAcceptance" component={TermsAcceptanceScreen} />
+      <Stack.Screen name="Welcome" component={WelcomeScreen} />
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Signup" component={SignupScreen} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      
+      {/* Main App Screens */}
+      <Stack.Screen name="MainTabs" component={MainTabs} />
+      <Stack.Screen name="PlanRoute" component={PlanRouteScreen} />
+      <Stack.Screen name="RideSelection" component={RideSelectionScreen} />
+      <Stack.Screen name="AssigningDriver" component={AssigningDriverScreen} />
+      <Stack.Screen name="ActiveTrip" component={ActiveTripScreen} />
+      <Stack.Screen name="TripRequest" component={TripRequestScreen} />
+      <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
+      <Stack.Screen name="Rating" component={RatingScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
+      <Stack.Screen name="LiveChat" component={LiveChatScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="TripCompletion" component={TripCompletionScreen} />
+      <Stack.Screen name="TripReceipt" component={TripReceiptScreen} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+      <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} />
+      <Stack.Screen name="PaymentsManagement" component={PaymentsManagementScreen} />
+      <Stack.Screen name="AddCryptoAddress" component={AddCryptoAddressScreen} />
+      <Stack.Screen name="Wallet" component={WalletScreen} />
+      <Stack.Screen name="VehicleManagement" component={VehicleManagementScreen} />
+      <Stack.Screen name="DocumentUpload" component={DocumentUploadScreen} />
+      <Stack.Screen name="Referral" component={ReferralScreen} />
+      <Stack.Screen name="SafetyCenter" component={SafetyCenterScreen} />
+      <Stack.Screen name="ScheduleRide" component={ScheduleRideScreen} />
+      <Stack.Screen name="CargoRequirements" component={CargoRequirementsScreen} />
+      <Stack.Screen name="MOVOPass" component={MOVOPassScreen} />
+      <Stack.Screen name="VehicleInfo" component={VehicleInfoScreen} />
+      <Stack.Screen name="HelpArticle" component={HelpArticleScreen} />
+      <Stack.Screen name="SafetyTips" component={SafetyTipsScreen} />
+      <Stack.Screen name="About" component={AboutScreen} />
     </Stack.Navigator>
   );
 };

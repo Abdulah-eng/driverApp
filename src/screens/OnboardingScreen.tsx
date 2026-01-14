@@ -47,12 +47,12 @@ const OnboardingScreen = ({navigation}: any) => {
         animated: true,
       });
     } else {
-      navigation.navigate('Login');
+      navigation.navigate('PhoneVerification');
     }
   };
 
   const handleSkip = () => {
-    navigation.navigate('Login');
+    navigation.navigate('PhoneVerification');
   };
 
   return (
