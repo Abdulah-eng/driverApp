@@ -6,9 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import {useAuth} from '../context/AuthContext';
+import {databaseService} from '../services/databaseService';
 
 const RatingScreen = ({navigation, route}: any) => {
   const trip = route?.params?.trip || {
@@ -18,10 +22,59 @@ const RatingScreen = ({navigation, route}: any) => {
 
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const {user} = useAuth();
 
-  const handleSubmit = () => {
-    // TODO: Submit rating
-    navigation.goBack();
+  const feedbackTags = ['Punctual', 'Polite', 'Clean Car', 'Good Route'];
+
+  const toggleTag = (tag: string) => {
+    if (selectedTags.includes(tag)) {
+      setSelectedTags(selectedTags.filter(t => t !== tag));
+    } else {
+      setSelectedTags([...selectedTags, tag]);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (rating === 0) {
+      Alert.alert('Error', 'Please select a rating');
+      return;
+    }
+
+    if (!user?.id) {
+      Alert.alert('Error', 'You must be logged in to submit a rating');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const {error} = await databaseService.submitRating({
+        trip_id: trip.id,
+        driver_id: user.id,
+        rating,
+        comment: comment || undefined,
+        tags: selectedTags.length > 0 ? selectedTags : undefined,
+      });
+      
+      if (error) {
+        Alert.alert('Error', error.message || 'Failed to submit rating. Please try again.');
+        setIsLoading(false);
+        return;
+      }
+      
+      setIsLoading(false);
+      Alert.alert('Success', 'Thank you for your feedback!', [
+        {
+          text: 'OK',
+          onPress: () => navigation.goBack(),
+        },
+      ]);
+    } catch (err: any) {
+      setIsLoading(false);
+      Alert.alert('Error', 'Failed to submit rating. Please try again.');
+    }
   };
 
   return (
@@ -72,9 +125,21 @@ const RatingScreen = ({navigation, route}: any) => {
           <View style={styles.quickFeedback}>
             <Text style={styles.quickFeedbackLabel}>Quick feedback</Text>
             <View style={styles.feedbackTags}>
-              {['Punctual', 'Polite', 'Clean Car', 'Good Route'].map(tag => (
-                <TouchableOpacity key={tag} style={styles.feedbackTag}>
-                  <Text style={styles.feedbackTagText}>{tag}</Text>
+              {feedbackTags.map(tag => (
+                <TouchableOpacity
+                  key={tag}
+                  style={[
+                    styles.feedbackTag,
+                    selectedTags.includes(tag) && styles.feedbackTagSelected,
+                  ]}
+                  onPress={() => toggleTag(tag)}>
+                  <Text
+                    style={[
+                      styles.feedbackTagText,
+                      selectedTags.includes(tag) && styles.feedbackTagTextSelected,
+                    ]}>
+                    {tag}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -83,11 +148,15 @@ const RatingScreen = ({navigation, route}: any) => {
           <TouchableOpacity
             style={[
               styles.submitButton,
-              rating === 0 && styles.submitButtonDisabled,
+              (rating === 0 || isLoading) && styles.submitButtonDisabled,
             ]}
             onPress={handleSubmit}
-            disabled={rating === 0}>
-            <Text style={styles.submitButtonText}>Submit Rating</Text>
+            disabled={rating === 0 || isLoading}>
+            {isLoading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.submitButtonText}>Submit Rating</Text>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -183,9 +252,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
+  feedbackTagSelected: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
   feedbackTagText: {
     fontSize: 14,
     color: '#666666',
+  },
+  feedbackTagTextSelected: {
+    color: '#FFFFFF',
   },
   submitButton: {
     backgroundColor: '#007AFF',
@@ -195,6 +271,7 @@ const styles = StyleSheet.create({
   },
   submitButtonDisabled: {
     backgroundColor: '#E0E0E0',
+    opacity: 0.6,
   },
   submitButtonText: {
     color: '#FFFFFF',

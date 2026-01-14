@@ -1,17 +1,21 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Header from '../components/Header';
 import {COLORS} from '../utils/constants';
+import {useAuth} from '../context/AuthContext';
+import {databaseService} from '../services/databaseService';
+import {Trip} from '../types';
 
-interface Trip {
+interface TripDisplay {
   id: string;
   date: string;
   time: string;
@@ -23,51 +27,77 @@ interface Trip {
   status: 'completed' | 'canceled' | 'scheduled';
 }
 
-const mockTrips: Trip[] = [
-  {
-    id: '1',
-    date: 'Nov 9',
-    time: '2:30 PM',
-    price: '$18.75',
-    driver: 'Zacharis Fredrick',
-    vehicleType: 'Economy',
-    from: '123 Main St, New York, NY',
-    to: 'Times Square, Manhattan, NY',
-    status: 'completed',
-  },
-  {
-    id: '2',
-    date: 'Nov 9',
-    time: '2:30 PM',
-    price: '$18.75',
-    driver: 'Zacharis Fredrick',
-    vehicleType: 'Economy',
-    from: '123 Main St, New York, NY',
-    to: 'Times Square, Manhattan, NY',
-    status: 'completed',
-  },
-  {
-    id: '3',
-    date: 'Nov 9',
-    time: '2:30 PM',
-    price: '$18.75',
-    driver: 'Zacharis Fredrick',
-    vehicleType: 'Economy',
-    from: '123 Main St, New York, NY',
-    to: 'Times Square, Manhattan, NY',
-    status: 'canceled',
-  },
-];
-
 const TripsScreen = ({navigation}: any) => {
   const [filter, setFilter] = useState<'All' | 'Completed' | 'Canceled' | 'Scheduled'>('All');
+  const [trips, setTrips] = useState<TripDisplay[]>([]);
+  const [loading, setLoading] = useState(true);
+  const {user} = useAuth();
+
+  useEffect(() => {
+    loadTrips();
+  }, [user, filter]);
+
+  const loadTrips = async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const statusFilter =
+        filter === 'All'
+          ? undefined
+          : filter === 'Completed'
+          ? 'completed'
+          : filter === 'Canceled'
+          ? 'cancelled'
+          : filter === 'Scheduled'
+          ? 'pending'
+          : undefined;
+
+      const fetchedTrips = await databaseService.getTrips(user.id, {
+        status: statusFilter,
+      });
+
+      // Transform trips to display format
+      const displayTrips: TripDisplay[] = fetchedTrips.map(trip => ({
+        id: trip.id,
+        date: new Date(trip.date).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        }),
+        time: new Date(`2000-01-01T${trip.time}`).toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+        }),
+        price: `$${trip.fare.toFixed(2)}`,
+        driver: trip.passengerName || 'Passenger',
+        vehicleType: 'Standard',
+        from: trip.from,
+        to: trip.to,
+        status:
+          trip.status === 'completed'
+            ? 'completed'
+            : trip.status === 'cancelled'
+            ? 'canceled'
+            : 'scheduled',
+      }));
+
+      setTrips(displayTrips);
+    } catch (error) {
+      console.error('Error loading trips:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredTrips =
     filter === 'All'
-      ? mockTrips
+      ? trips
       : filter === 'Scheduled'
-      ? []
-      : mockTrips.filter(trip => trip.status === filter.toLowerCase());
+      ? trips.filter(t => t.status === 'scheduled')
+      : trips.filter(trip => trip.status === filter.toLowerCase());
 
   const renderTripItem = ({item}: {item: Trip}) => (
     <TouchableOpacity
@@ -158,7 +188,11 @@ const TripsScreen = ({navigation}: any) => {
         )}
       </View>
 
-      {filteredTrips.length === 0 ? (
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      ) : filteredTrips.length === 0 ? (
         renderEmptyState()
       ) : (
         <FlatList
@@ -167,6 +201,8 @@ const TripsScreen = ({navigation}: any) => {
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          refreshing={loading}
+          onRefresh={loadTrips}
         />
       )}
     </SafeAreaView>
@@ -309,6 +345,11 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     fontSize: 14,
     color: COLORS.text.tertiary,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

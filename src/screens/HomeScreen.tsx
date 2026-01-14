@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,51 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import {useAuth} from '../context/AuthContext';
+import {databaseService} from '../services/databaseService';
 
 const HomeScreen = ({navigation}: any) => {
   const [isOnline, setIsOnline] = useState(false);
+  const [todayTrips, setTodayTrips] = useState(0);
+  const [todayEarnings, setTodayEarnings] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const {user} = useAuth();
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [user]);
+
+  const loadDashboardData = async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Get today's trips
+      const trips = await databaseService.getTrips(user.id, {
+        status: 'completed',
+        limit: 100,
+      });
+      
+      const today = new Date().toISOString().split('T')[0];
+      const todayTripsCount = trips.filter(t => t.date === today).length;
+      setTodayTrips(todayTripsCount);
+
+      // Get today's earnings
+      const earnings = await databaseService.getEarnings(user.id, 'today');
+      setTodayEarnings(earnings.today);
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -20,8 +59,14 @@ const HomeScreen = ({navigation}: any) => {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Good Morning</Text>
-            <Text style={styles.name}>John Doe</Text>
+            <Text style={styles.greeting}>
+              {new Date().getHours() < 12
+                ? 'Good Morning'
+                : new Date().getHours() < 18
+                ? 'Good Afternoon'
+                : 'Good Evening'}
+            </Text>
+            <Text style={styles.name}>{user?.full_name || 'Driver'}</Text>
           </View>
           <TouchableOpacity
             style={styles.notificationButton}
@@ -64,12 +109,20 @@ const HomeScreen = ({navigation}: any) => {
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
             <Icon name="today" size={24} color="#007AFF" />
-            <Text style={styles.statValue}>12</Text>
+            {loading ? (
+              <ActivityIndicator size="small" color="#007AFF" style={{marginTop: 8}} />
+            ) : (
+              <Text style={styles.statValue}>{todayTrips}</Text>
+            )}
             <Text style={styles.statLabel}>Today's Trips</Text>
           </View>
           <View style={styles.statCard}>
             <Icon name="attach-money" size={24} color="#4CAF50" />
-            <Text style={styles.statValue}>$245</Text>
+            {loading ? (
+              <ActivityIndicator size="small" color="#4CAF50" style={{marginTop: 8}} />
+            ) : (
+              <Text style={styles.statValue}>${todayEarnings.toFixed(0)}</Text>
+            )}
             <Text style={styles.statLabel}>Today's Earnings</Text>
           </View>
         </View>
@@ -78,19 +131,27 @@ const HomeScreen = ({navigation}: any) => {
         <View style={styles.actionsContainer}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionsGrid}>
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('Trips')}>
               <Icon name="history" size={28} color="#007AFF" />
               <Text style={styles.actionText}>Trip History</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('Earnings')}>
               <Icon name="account-balance-wallet" size={28} color="#4CAF50" />
               <Text style={styles.actionText}>Earnings</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('HelpSupport')}>
               <Icon name="help-outline" size={28} color="#FF9800" />
               <Text style={styles.actionText}>Help</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('Settings')}>
               <Icon name="settings" size={28} color="#9E9E9E" />
               <Text style={styles.actionText}>Settings</Text>
             </TouchableOpacity>

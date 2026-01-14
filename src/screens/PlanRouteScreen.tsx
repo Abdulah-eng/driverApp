@@ -29,7 +29,17 @@ const PlanRouteScreen = ({navigation}: any) => {
 
   const handleContinue = () => {
     if (pickup && destination) {
-      navigation.navigate('RideSelection', {pickup, destination});
+      // In a real app, you would geocode addresses to get lat/lng
+      // For now, we'll pass the addresses and let the map handle coordinates
+      navigation.navigate('RideSelection', {
+        pickup,
+        destination,
+        // You can add geocoding here to get actual coordinates
+        // pickupLat: ...,
+        // pickupLng: ...,
+        // dropoffLat: ...,
+        // dropoffLng: ...,
+      });
     }
   };
 

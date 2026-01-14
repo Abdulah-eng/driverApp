@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -7,18 +7,42 @@ import {
   ScrollView,
   TouchableOpacity,
   Modal,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Header from '../components/Header';
 import {COLORS} from '../utils/constants';
+import {useAuth} from '../context/AuthContext';
+import {databaseService} from '../services/databaseService';
 
 const EditProfileScreen = ({navigation}: any) => {
-  const [username, setUsername] = useState('Tyler bowman');
-  const [email, setEmail] = useState('tylerbowman423@gmail.com');
+  const {user, updateUser} = useAuth();
+  const [username, setUsername] = useState(user?.full_name || '');
+  const [email, setEmail] = useState(user?.email || '');
   const [city, setCity] = useState('');
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  const loadProfile = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const profile = await databaseService.getUserProfile(user.id);
+      if (profile) {
+        setUsername(profile.name);
+        setEmail(profile.email || '');
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    }
+  };
 
   const handleInputChange = () => {
     setHasChanges(true);
@@ -32,10 +56,41 @@ const EditProfileScreen = ({navigation}: any) => {
     }
   };
 
-  const handleSave = () => {
-    setHasChanges(false);
-    setShowSaveModal(false);
-    navigation.goBack();
+  const handleSave = async () => {
+    if (!user?.id) {
+      Alert.alert('Error', 'You must be logged in to save changes');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const {error} = await databaseService.updateUserProfile(user.id, {
+        name: username,
+        email: email || undefined,
+      });
+
+      if (error) {
+        Alert.alert('Error', error.message || 'Failed to save profile');
+        setIsSaving(false);
+        return;
+      }
+
+      // Update auth context
+      updateUser({
+        ...user,
+        full_name: username,
+        email: email,
+      });
+
+      setHasChanges(false);
+      setShowSaveModal(false);
+      Alert.alert('Success', 'Profile updated successfully');
+      navigation.goBack();
+    } catch (err: any) {
+      Alert.alert('Error', 'Failed to save profile. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleExitWithoutSaving = () => {
@@ -112,8 +167,15 @@ const EditProfileScreen = ({navigation}: any) => {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Save</Text>
+        <TouchableOpacity
+          style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+          onPress={handleSave}
+          disabled={isSaving}>
+          {isSaving ? (
+            <ActivityIndicator color={COLORS.text.primary} />
+          ) : (
+            <Text style={styles.saveButtonText}>Save</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
 
@@ -219,6 +281,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: COLORS.text.primary,
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
   },
   modalOverlay: {
     flex: 1,

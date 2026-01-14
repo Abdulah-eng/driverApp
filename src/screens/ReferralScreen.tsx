@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   TextInput,
   Share,
+  Alert,
+  Platform,
+  Clipboard,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -55,9 +58,23 @@ const ReferralScreen = ({navigation}: any) => {
     }
   };
 
-  const handleCopy = () => {
-    // TODO: Copy to clipboard
-    console.log('Copied:', referralCode);
+  const handleCopy = (code: string = referralCode) => {
+    try {
+      if (Platform.OS === 'ios' || Platform.OS === 'android') {
+        Clipboard.setString(code);
+        Alert.alert('Copied!', `${code} has been copied to clipboard`);
+      } else {
+        // Fallback for web or other platforms
+        Share.share({
+          message: code,
+        });
+      }
+    } catch (err) {
+      // Fallback to share if clipboard fails
+      Share.share({
+        message: code,
+      });
+    }
   };
 
   return (
@@ -138,7 +155,7 @@ const ReferralScreen = ({navigation}: any) => {
                 <View style={styles.promoCodeContainer}>
                   <Icon name="local-offer" size={20} color={COLORS.primary} />
                   <Text style={styles.promoCode}>{promo.code}</Text>
-                  <TouchableOpacity onPress={handleCopy}>
+                  <TouchableOpacity onPress={() => handleCopy(promo.code)}>
                     <Icon
                       name="content-copy"
                       size={16}

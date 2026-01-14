@@ -1,21 +1,28 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Header from '../components/Header';
 import {COLORS} from '../utils/constants';
+import {useAuth} from '../context/AuthContext';
+import {databaseService} from '../services/databaseService';
 
 const TripCompletionScreen = ({navigation, route}: any) => {
   const [rating, setRating] = useState(5);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tipPercentage, setTipPercentage] = useState<number | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const {user} = useAuth();
 
+  const tripId = route?.params?.tripId;
   const fare = route?.params?.fare || 12.54;
   const paymentMethod = route?.params?.paymentMethod || 'Card.... 9321';
 
@@ -41,6 +48,55 @@ const TripCompletionScreen = ({navigation, route}: any) => {
           ? prev.filter(t => t !== tag)
           : [...prev, tag],
       );
+    }
+  };
+
+  const handleContinue = async () => {
+    if (!tripId || !user?.id) {
+      navigation.navigate('TripReceipt', {fare, tipPercentage});
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Calculate tip amount if tip percentage is set
+      let tipAmount = 0;
+      if (tipPercentage && tipPercentage > 0) {
+        tipAmount = (fare * tipPercentage) / 100;
+        
+        // Create tip earning
+        await databaseService.createEarning({
+          driver_id: user.id,
+          trip_id: tripId,
+          amount: tipAmount,
+          type: 'tip',
+          description: `${tipPercentage}% tip`,
+        });
+      }
+
+      // Submit rating if provided
+      if (rating > 0) {
+        await databaseService.submitRating({
+          trip_id: tripId,
+          driver_id: user.id,
+          rating,
+          tags: selectedTags.length > 0 ? selectedTags : undefined,
+        });
+      }
+
+      setIsSubmitting(false);
+      navigation.navigate('TripReceipt', {
+        tripId,
+        fare,
+        tipPercentage,
+        tipAmount,
+      });
+    } catch (error: any) {
+      setIsSubmitting(false);
+      Alert.alert('Error', 'Failed to save trip data. Please try again.');
+      // Still navigate to receipt even if there's an error
+      navigation.navigate('TripReceipt', {fare, tipPercentage});
     }
   };
 
@@ -148,9 +204,14 @@ const TripCompletionScreen = ({navigation, route}: any) => {
         </View>
 
         <TouchableOpacity
-          style={styles.continueButton}
-          onPress={() => navigation.navigate('TripReceipt', {fare, tipPercentage})}>
-          <Text style={styles.continueButtonText}>Continue</Text>
+          style={[styles.continueButton, isSubmitting && styles.continueButtonDisabled]}
+          onPress={handleContinue}
+          disabled={isSubmitting}>
+          {isSubmitting ? (
+            <ActivityIndicator color={COLORS.text.primary} />
+          ) : (
+            <Text style={styles.continueButtonText}>Continue</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -301,6 +362,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: COLORS.text.primary,
+  },
+  continueButtonDisabled: {
+    opacity: 0.6,
   },
 });
 

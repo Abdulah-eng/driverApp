@@ -10,18 +10,31 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import MapView, {Marker} from 'react-native-maps';
 import Header from '../components/Header';
 import {COLORS} from '../utils/constants';
+import {databaseService} from '../services/databaseService';
 
 const {width, height} = Dimensions.get('window');
 
-const AssigningDriverScreen = ({navigation}: any) => {
-  useEffect(() => {
-    // Simulate driver assignment
-    const timer = setTimeout(() => {
-      navigation.replace('ActiveTrip');
-    }, 3000);
+const AssigningDriverScreen = ({navigation, route}: any) => {
+  const tripId = route?.params?.tripId;
 
-    return () => clearTimeout(timer);
-  }, [navigation]);
+  useEffect(() => {
+    // Simulate driver assignment and update trip status
+    const assignDriver = async () => {
+      if (tripId) {
+        // Update trip status to active
+        await databaseService.updateTripStatus(tripId, 'active');
+      }
+
+      // Navigate to active trip after 3 seconds
+      const timer = setTimeout(() => {
+        navigation.replace('ActiveTrip', {tripId});
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    };
+
+    assignDriver();
+  }, [navigation, tripId]);
 
   const region = {
     latitude: 41.7151,

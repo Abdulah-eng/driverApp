@@ -7,12 +7,16 @@ import {
   TouchableOpacity,
   Dimensions,
   TextInput,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MapView, {Marker, Polyline} from 'react-native-maps';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Header from '../components/Header';
 import {COLORS} from '../utils/constants';
+import {useAuth} from '../context/AuthContext';
+import {databaseService} from '../services/databaseService';
 
 const {width, height} = Dimensions.get('window');
 
@@ -88,17 +92,62 @@ const RideSelectionScreen = ({navigation, route}: any) => {
   const [selectedVehicle, setSelectedVehicle] = useState('plus');
   const [promoCode, setPromoCode] = useState('');
   const [guaranteedRide, setGuaranteedRide] = useState(false);
+  const [isCreatingTrip, setIsCreatingTrip] = useState(false);
+  const {user} = useAuth();
 
   const pickup = route?.params?.pickup || '456 Oak Ave, Brooklyn, NY';
   const destination = route?.params?.destination || '456 Oak Ave, Brooklyn, NY';
+  const pickupLat = route?.params?.pickupLat;
+  const pickupLng = route?.params?.pickupLng;
+  const dropoffLat = route?.params?.dropoffLat;
+  const dropoffLng = route?.params?.dropoffLng;
 
   const selectedVehicleData = vehicleTypes.find(v => v.id === selectedVehicle);
 
   const region = {
-    latitude: 41.7151,
-    longitude: 44.8271,
+    latitude: pickupLat || 41.7151,
+    longitude: pickupLng || 44.8271,
     latitudeDelta: 0.0922,
     longitudeDelta: 0.0421,
+  };
+
+  const handleConfirmRide = async () => {
+    if (!user?.id) {
+      Alert.alert('Error', 'You must be logged in to book a ride');
+      return;
+    }
+
+    setIsCreatingTrip(true);
+
+    try {
+      // Extract fare from price string (remove $ sign)
+      const fare = parseFloat(selectedVehicleData?.price.replace('$', '') || '0');
+
+      const {trip, error} = await databaseService.createTrip({
+        driver_id: user.id,
+        pickup_location: pickup,
+        dropoff_location: destination,
+        fare: fare,
+        vehicle_type: selectedVehicleData?.name || 'Standard',
+        pickup_lat: pickupLat,
+        pickup_lng: pickupLng,
+        dropoff_lat: dropoffLat,
+        dropoff_lng: dropoffLng,
+      });
+
+      if (error) {
+        Alert.alert('Error', error.message || 'Failed to create trip. Please try again.');
+        setIsCreatingTrip(false);
+        return;
+      }
+
+      setIsCreatingTrip(false);
+      // Navigate to assigning driver screen with trip data
+      navigation.navigate('AssigningDriver', {tripId: trip?.id});
+    } catch (err: any) {
+      setIsCreatingTrip(false);
+      Alert.alert('Error', 'Failed to create trip. Please try again.');
+    }
   };
 
   return (
@@ -279,11 +328,18 @@ const RideSelectionScreen = ({navigation, route}: any) => {
           </View>
 
           <TouchableOpacity
-            style={styles.confirmButton}
-            onPress={() => navigation.navigate('AssigningDriver')}>
-            <Icon name="credit-card" size={20} color={COLORS.text.primary} />
-            <Text style={styles.confirmButtonText}>Confirm ride</Text>
-            <Icon name="calendar-today" size={20} color={COLORS.text.primary} />
+            style={[styles.confirmButton, isCreatingTrip && styles.confirmButtonDisabled]}
+            onPress={handleConfirmRide}
+            disabled={isCreatingTrip}>
+            {isCreatingTrip ? (
+              <ActivityIndicator color={COLORS.text.primary} />
+            ) : (
+              <>
+                <Icon name="credit-card" size={20} color={COLORS.text.primary} />
+                <Text style={styles.confirmButtonText}>Confirm ride</Text>
+                <Icon name="calendar-today" size={20} color={COLORS.text.primary} />
+              </>
+            )}
           </TouchableOpacity>
 
           <Text style={styles.lockedText}>
@@ -532,6 +588,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: COLORS.text.primary,
+  },
+  confirmButtonDisabled: {
+    opacity: 0.6,
   },
   lockedText: {
     fontSize: 12,

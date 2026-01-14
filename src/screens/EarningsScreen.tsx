@@ -1,15 +1,64 @@
-import React from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import {useAuth} from '../context/AuthContext';
+import {databaseService} from '../services/databaseService';
+import {Earnings} from '../types';
 
 const EarningsScreen = ({navigation}: any) => {
+  const [earnings, setEarnings] = useState<Earnings>({
+    total: 0,
+    today: 0,
+    thisWeek: 0,
+    thisMonth: 0,
+    breakdown: {
+      trips: 0,
+      tips: 0,
+      bonuses: 0,
+    },
+  });
+  const [loading, setLoading] = useState(true);
+  const {user} = useAuth();
+
+  useEffect(() => {
+    loadEarnings();
+  }, [user]);
+
+  const loadEarnings = async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const fetchedEarnings = await databaseService.getEarnings(user.id, 'all');
+      setEarnings(fetchedEarnings);
+    } catch (error) {
+      console.error('Error loading earnings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -24,7 +73,7 @@ const EarningsScreen = ({navigation}: any) => {
         {/* Total Earnings Card */}
         <View style={styles.totalCard}>
           <Text style={styles.totalLabel}>Total Earnings</Text>
-          <Text style={styles.totalAmount}>$1,245.50</Text>
+          <Text style={styles.totalAmount}>${earnings.total.toFixed(2)}</Text>
           <Text style={styles.totalPeriod}>This Month</Text>
         </View>
 
@@ -32,18 +81,18 @@ const EarningsScreen = ({navigation}: any) => {
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
             <Icon name="today" size={24} color="#007AFF" />
-            <Text style={styles.statValue}>45</Text>
+            <Text style={styles.statValue}>{earnings.breakdown.trips > 0 ? Math.floor(earnings.breakdown.trips / 20) : 0}</Text>
             <Text style={styles.statLabel}>Trips</Text>
           </View>
           <View style={styles.statItem}>
             <Icon name="attach-money" size={24} color="#4CAF50" />
-            <Text style={styles.statValue}>$245</Text>
+            <Text style={styles.statValue}>${earnings.today.toFixed(0)}</Text>
             <Text style={styles.statLabel}>Today</Text>
           </View>
           <View style={styles.statItem}>
             <Icon name="trending-up" size={24} color="#FF9800" />
-            <Text style={styles.statValue}>+12%</Text>
-            <Text style={styles.statLabel}>Growth</Text>
+            <Text style={styles.statValue}>${earnings.thisWeek.toFixed(0)}</Text>
+            <Text style={styles.statLabel}>This Week</Text>
           </View>
         </View>
 
@@ -56,21 +105,21 @@ const EarningsScreen = ({navigation}: any) => {
                 <Icon name="check-circle" size={20} color="#4CAF50" />
                 <Text style={styles.breakdownText}>Completed Trips</Text>
               </View>
-              <Text style={styles.breakdownAmount}>$1,200.00</Text>
+              <Text style={styles.breakdownAmount}>${earnings.breakdown.trips.toFixed(2)}</Text>
             </View>
             <View style={styles.breakdownItem}>
               <View style={styles.breakdownLeft}>
                 <Icon name="stars" size={20} color="#FFD700" />
                 <Text style={styles.breakdownText}>Tips</Text>
               </View>
-              <Text style={styles.breakdownAmount}>$45.50</Text>
+              <Text style={styles.breakdownAmount}>${earnings.breakdown.tips.toFixed(2)}</Text>
             </View>
             <View style={styles.breakdownItem}>
               <View style={styles.breakdownLeft}>
                 <Icon name="local-offer" size={20} color="#FF9800" />
                 <Text style={styles.breakdownText}>Bonuses</Text>
               </View>
-              <Text style={styles.breakdownAmount}>$0.00</Text>
+              <Text style={styles.breakdownAmount}>${earnings.breakdown.bonuses.toFixed(2)}</Text>
             </View>
           </View>
         </View>
@@ -277,6 +326,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

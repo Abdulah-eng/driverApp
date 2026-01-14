@@ -8,21 +8,56 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import {useAuth} from '../context/AuthContext';
 
 const LoginScreen = ({navigation}: any) => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const {signIn} = useAuth();
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!phoneNumber || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      setError('Please fill in all fields');
       return;
     }
-    // TODO: Implement login logic
-    navigation.navigate('MainTabs');
+
+    if (phoneNumber.length < 10) {
+      setError('Please enter a valid phone number');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    setError('');
+    setIsLoading(true);
+
+    try {
+      const {error: signInError} = await signIn(phoneNumber, password);
+      
+      if (signInError) {
+        setError(signInError.message || 'Login failed. Please try again.');
+        Alert.alert('Login Error', signInError.message || 'Login failed. Please try again.');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Navigation will be handled by AuthContext or navigation listener
+      navigation.navigate('MainTabs');
+    } catch (err: any) {
+      setError(err.message || 'Login failed. Please try again.');
+      Alert.alert('Login Error', err.message || 'Login failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -35,28 +70,50 @@ const LoginScreen = ({navigation}: any) => {
           <Text style={styles.subtitle}>Sign in to continue</Text>
 
           <View style={styles.form}>
+            {error ? (
+              <View style={styles.errorContainer}>
+                <Icon name="error-outline" size={20} color="#F44336" />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+
             <TextInput
-              style={styles.input}
+              style={[styles.input, error && styles.inputError]}
               placeholder="Phone Number"
               placeholderTextColor="#999"
               value={phoneNumber}
-              onChangeText={setPhoneNumber}
+              onChangeText={text => {
+                setPhoneNumber(text);
+                setError('');
+              }}
               keyboardType="phone-pad"
               autoCapitalize="none"
+              editable={!isLoading}
             />
 
             <TextInput
-              style={styles.input}
+              style={[styles.input, error && styles.inputError]}
               placeholder="Password"
               placeholderTextColor="#999"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={text => {
+                setPassword(text);
+                setError('');
+              }}
               secureTextEntry
               autoCapitalize="none"
+              editable={!isLoading}
             />
 
-            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-              <Text style={styles.loginButtonText}>Sign In</Text>
+            <TouchableOpacity
+              style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
+              onPress={handleLogin}
+              disabled={isLoading}>
+              {isLoading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.loginButtonText}>Sign In</Text>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -105,6 +162,20 @@ const styles = StyleSheet.create({
   form: {
     width: '100%',
   },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFEBEE',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  errorText: {
+    flex: 1,
+    color: '#F44336',
+    fontSize: 14,
+  },
   input: {
     backgroundColor: '#F5F5F5',
     borderRadius: 12,
@@ -113,12 +184,19 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     color: '#000000',
   },
+  inputError: {
+    borderWidth: 1,
+    borderColor: '#F44336',
+  },
   loginButton: {
     backgroundColor: '#007AFF',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
     marginTop: 8,
+  },
+  loginButtonDisabled: {
+    opacity: 0.6,
   },
   loginButtonText: {
     color: '#FFFFFF',

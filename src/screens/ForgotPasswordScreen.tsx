@@ -8,21 +8,58 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import {authService} from '../services/authService';
 
 const ForgotPasswordScreen = ({navigation}: any) => {
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (!phoneNumber) {
       Alert.alert('Error', 'Please enter your phone number');
       return;
     }
-    // TODO: Implement password reset
-    Alert.alert('Success', 'Password reset link sent to your phone');
-    navigation.navigate('Login');
+
+    if (phoneNumber.length < 10) {
+      Alert.alert('Error', 'Please enter a valid phone number');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const {error} = await authService.resetPassword(phoneNumber);
+      
+      if (error) {
+        Alert.alert('Error', error.message || 'Failed to send reset link. Please try again.');
+        setIsLoading(false);
+        return;
+      }
+      
+      setIsLoading(false);
+      setIsSuccess(true);
+      Alert.alert(
+        'Success',
+        'Password reset link has been sent. Please check your email or contact support.',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.navigate('Login'),
+          },
+        ],
+      );
+    } catch (err: any) {
+      setIsLoading(false);
+      Alert.alert(
+        'Error',
+        err.message || 'Failed to send reset link. Please try again.',
+      );
+    }
   };
 
   return (
@@ -58,8 +95,17 @@ const ForgotPasswordScreen = ({navigation}: any) => {
               autoCapitalize="none"
             />
 
-            <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
-              <Text style={styles.resetButtonText}>Send Reset Link</Text>
+            <TouchableOpacity
+              style={[styles.resetButton, isLoading && styles.resetButtonDisabled]}
+              onPress={handleReset}
+              disabled={isLoading || isSuccess}>
+              {isLoading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.resetButtonText}>
+                  {isSuccess ? 'Link Sent!' : 'Send Reset Link'}
+                </Text>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -126,6 +172,9 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
     marginTop: 8,
+  },
+  resetButtonDisabled: {
+    opacity: 0.6,
   },
   resetButtonText: {
     color: '#FFFFFF',

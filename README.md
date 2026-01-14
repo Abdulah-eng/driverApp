@@ -72,12 +72,54 @@ driverApp/
 - React Navigation
 - React Native Vector Icons
 - React Native Safe Area Context
+- Supabase (Authentication & Database)
+- React Native Config (Environment Variables)
+
+## Backend Integration
+
+This app is fully integrated with **Supabase** for:
+- ✅ Authentication (Phone/OTP and Email/Password)
+- ✅ Database operations (PostgreSQL)
+- ✅ Real-time data synchronization
+- ✅ Row Level Security (RLS)
+
+### Quick Setup
+
+1. **Install dependencies:**
+   ```bash
+   npm install
+   cd ios && pod install && cd ..  # For iOS
+   ```
+
+2. **Set up Supabase:**
+   - Create a project at [Supabase](https://supabase.com)
+   - Get your project URL and anon key
+   - Create `.env` file with your credentials:
+     ```env
+     SUPABASE_URL=your_project_url
+     SUPABASE_ANON_KEY=your_anon_key
+     ```
+
+3. **Set up database:**
+   - Go to Supabase SQL Editor
+   - Run the SQL from `supabase/schema.sql`
+
+4. **Run the app:**
+   ```bash
+   npm start
+   npm run android  # or npm run ios
+   ```
+
+For detailed setup instructions, see:
+- [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) - Complete Supabase setup guide
+- [ENV_SETUP.md](./ENV_SETUP.md) - Environment variables guide
+- [IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md) - Implementation details
 
 ## Next Steps
 
-- [ ] Implement authentication flow
+- [x] Implement authentication flow ✅
+- [x] Connect to backend API ✅
 - [ ] Add map integration for trip tracking
-- [ ] Connect to backend API
 - [ ] Add push notifications
 - [ ] Implement real-time trip updates
 - [ ] Add payment integration

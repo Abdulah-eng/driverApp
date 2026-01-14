@@ -1,24 +1,64 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Header from '../components/Header';
 import {COLORS} from '../utils/constants';
+import {useAuth} from '../context/AuthContext';
+import {databaseService} from '../services/databaseService';
 
 const ProfileScreen = ({navigation}: any) => {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const {user: authUser, signOut} = useAuth();
+  const [user, setUser] = useState({
+    name: authUser?.full_name || 'User',
+    trips: 0,
+    phone: authUser?.phone || '',
+    email: authUser?.email || '',
+  });
 
-  const user = {
-    name: 'Tyler bowman',
-    trips: 24,
-    phone: '+955 1645154564',
-    email: 'tylerbowman423@gmail.com',
+  useEffect(() => {
+    loadUserProfile();
+  }, [authUser]);
+
+  const loadUserProfile = async () => {
+    if (!authUser?.id) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const profile = await databaseService.getUserProfile(authUser.id);
+      if (profile) {
+        setUser({
+          name: profile.name,
+          trips: profile.totalTrips,
+          phone: profile.phone,
+          email: profile.email || '',
+        });
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    setShowLogoutModal(false);
+    await signOut();
+    navigation.reset({
+      index: 0,
+      routes: [{name: 'Onboarding'}],
+    });
   };
 
   const savedPlaces = [
@@ -35,11 +75,16 @@ const ProfileScreen = ({navigation}: any) => {
         onMenuPress={() => navigation.openDrawer()}
       />
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
-        <View style={styles.profileSection}>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.profileSection}>
           <View style={styles.nameRow}>
             <Text style={styles.userName}>{user.name}</Text>
             <TouchableOpacity
@@ -144,15 +189,14 @@ const ProfileScreen = ({navigation}: any) => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.logoutConfirmButton}
-                onPress={() => {
-                  setShowLogoutModal(false);
-                  navigation.navigate('PhoneVerification');
-                }}>
+                onPress={handleLogout}>
                 <Text style={styles.logoutConfirmText}>Logout</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
+      )}
+        </ScrollView>
       )}
     </SafeAreaView>
   );
@@ -351,6 +395,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.text.primary,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

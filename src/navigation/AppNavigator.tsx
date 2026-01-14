@@ -48,6 +48,8 @@ import HelpArticleScreen from '../screens/HelpArticleScreen';
 import SafetyTipsScreen from '../screens/SafetyTipsScreen';
 import AddCryptoAddressScreen from '../screens/AddCryptoAddressScreen';
 import PlanRouteScreen from '../screens/PlanRouteScreen';
+import EmergencyAssistanceScreen from '../screens/EmergencyAssistanceScreen';
+import ShareLocationScreen from '../screens/ShareLocationScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -134,6 +136,8 @@ const AppNavigator = () => {
       <Stack.Screen name="HelpArticle" component={HelpArticleScreen} />
       <Stack.Screen name="SafetyTips" component={SafetyTipsScreen} />
       <Stack.Screen name="About" component={AboutScreen} />
+      <Stack.Screen name="EmergencyAssistance" component={EmergencyAssistanceScreen} />
+      <Stack.Screen name="ShareLocation" component={ShareLocationScreen} />
     </Stack.Navigator>
   );
 };

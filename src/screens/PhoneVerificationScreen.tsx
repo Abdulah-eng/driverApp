@@ -8,15 +8,19 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {COLORS} from '../utils/constants';
+import {authService} from '../services/authService';
 
 const PhoneVerificationScreen = ({navigation}: any) => {
   const [countryCode, setCountryCode] = useState('+995');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const countries = [
     {code: '+995', flag: '🇬🇪', name: 'Georgia'},
@@ -24,13 +28,32 @@ const PhoneVerificationScreen = ({navigation}: any) => {
     {code: '+44', flag: '🇬🇧', name: 'United Kingdom'},
   ];
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (phoneNumber.length < 9) {
+      Alert.alert('Error', 'Please enter a valid phone number');
       return;
     }
-    navigation.navigate('OTPVerification', {
-      phoneNumber: `${countryCode} ${phoneNumber}`,
-    });
+
+    const fullPhoneNumber = `${countryCode}${phoneNumber}`.replace(/\s/g, '');
+
+    setIsLoading(true);
+    try {
+      const {error} = await authService.sendOTP(fullPhoneNumber);
+      
+      if (error) {
+        Alert.alert('Error', error.message || 'Failed to send OTP. Please try again.');
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(false);
+      navigation.navigate('OTPVerification', {
+        phoneNumber: fullPhoneNumber,
+      });
+    } catch (err: any) {
+      setIsLoading(false);
+      Alert.alert('Error', 'Failed to send OTP. Please try again.');
+    }
   };
 
   return (
@@ -72,16 +95,21 @@ const PhoneVerificationScreen = ({navigation}: any) => {
               style={[
                 styles.continueButton,
                 phoneNumber.length >= 9 && styles.continueButtonActive,
+                isLoading && styles.continueButtonDisabled,
               ]}
               onPress={handleContinue}
-              disabled={phoneNumber.length < 9}>
-              <Text
-                style={[
-                  styles.continueButtonText,
-                  phoneNumber.length >= 9 && styles.continueButtonTextActive,
-                ]}>
-                Continue
-              </Text>
+              disabled={phoneNumber.length < 9 || isLoading}>
+              {isLoading ? (
+                <ActivityIndicator color={COLORS.background} />
+              ) : (
+                <Text
+                  style={[
+                    styles.continueButtonText,
+                    phoneNumber.length >= 9 && styles.continueButtonTextActive,
+                  ]}>
+                  Continue
+                </Text>
+              )}
             </TouchableOpacity>
 
             <Text style={styles.termsText}>
@@ -198,6 +226,9 @@ const styles = StyleSheet.create({
   },
   continueButtonTextActive: {
     color: COLORS.background,
+  },
+  continueButtonDisabled: {
+    opacity: 0.6,
   },
   termsText: {
     fontSize: 12,

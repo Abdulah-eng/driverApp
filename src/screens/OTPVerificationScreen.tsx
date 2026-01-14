@@ -5,16 +5,21 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {COLORS} from '../utils/constants';
+import {authService} from '../services/authService';
+import {useAuth} from '../context/AuthContext';
 
 const OTPVerificationScreen = ({route, navigation}: any) => {
   const phoneNumber = route?.params?.phoneNumber || route?.params?.email || '+1234567890';
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const inputRefs = useRef<Array<TextInput | null>>([]);
   const [isValid, setIsValid] = useState(true);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const {updateUser} = useAuth();
 
   const isEmail = route?.params?.email ? true : false;
 
@@ -36,23 +41,73 @@ const OTPVerificationScreen = ({route, navigation}: any) => {
     }
   };
 
-  const handleVerify = () => {
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  const handleVerify = async () => {
     const code = otp.join('');
     if (code.length !== 6) {
       return;
     }
-    // Simulate verification - correct code is 967425
-    if (code === '967425') {
-      navigation.navigate('TermsAcceptance');
-    } else {
+
+    setIsVerifying(true);
+    setIsValid(true);
+
+    try {
+      const {user, error} = await authService.verifyOTP(phoneNumber, code);
+      
+      if (error) {
+        setIsValid(false);
+        Alert.alert('Error', error.message || 'Invalid verification code');
+        setIsVerifying(false);
+        return;
+      }
+
+      if (user) {
+        updateUser(user);
+        navigation.navigate('TermsAcceptance');
+      } else {
+        setIsValid(false);
+        setIsVerifying(false);
+      }
+    } catch (err: any) {
       setIsValid(false);
+      Alert.alert('Error', 'Verification failed. Please try again.');
+      setIsVerifying(false);
     }
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
+    if (resendCooldown > 0) {
+      return;
+    }
+
     setOtp(['', '', '', '', '', '']);
     setIsValid(true);
-    // TODO: Implement resend OTP
+    
+    try {
+      const {error} = await authService.resendOTP(phoneNumber);
+      
+      if (error) {
+        Alert.alert('Error', error.message || 'Failed to resend OTP. Please try again.');
+        return;
+      }
+      
+      // Set cooldown timer (60 seconds)
+      setResendCooldown(60);
+      const interval = setInterval(() => {
+        setResendCooldown(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      
+      Alert.alert('Success', 'OTP has been resent to your phone');
+    } catch (err: any) {
+      Alert.alert('Error', 'Failed to resend OTP. Please try again.');
+    }
   };
 
   return (
@@ -92,8 +147,19 @@ const OTPVerificationScreen = ({route, navigation}: any) => {
           <Text style={styles.errorText}>Incorrect code. Try again.</Text>
         )}
 
-        <TouchableOpacity onPress={handleResend} style={styles.resendButton}>
-          <Text style={styles.resendText}>Resend code</Text>
+        <TouchableOpacity
+          onPress={handleResend}
+          style={styles.resendButton}
+          disabled={resendCooldown > 0}>
+          <Text
+            style={[
+              styles.resendText,
+              resendCooldown > 0 && styles.resendTextDisabled,
+            ]}>
+            {resendCooldown > 0
+              ? `Resend code in ${resendCooldown}s`
+              : 'Resend code'}
+          </Text>
         </TouchableOpacity>
 
         <Text style={styles.helperText}>
@@ -110,18 +176,23 @@ const OTPVerificationScreen = ({route, navigation}: any) => {
             style={[
               styles.continueButton,
               otp.join('').length === 6 && isValid && styles.continueButtonActive,
+              isVerifying && styles.continueButtonDisabled,
             ]}
             onPress={handleVerify}
-            disabled={otp.join('').length !== 6 || !isValid}>
-            <Text
-              style={[
-                styles.continueButtonText,
-                otp.join('').length === 6 &&
-                  isValid &&
-                  styles.continueButtonTextActive,
-              ]}>
-              Continue
-            </Text>
+            disabled={otp.join('').length !== 6 || !isValid || isVerifying}>
+            {isVerifying ? (
+              <Text style={styles.continueButtonTextActive}>Verifying...</Text>
+            ) : (
+              <Text
+                style={[
+                  styles.continueButtonText,
+                  otp.join('').length === 6 &&
+                    isValid &&
+                    styles.continueButtonTextActive,
+                ]}>
+                Continue
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -184,6 +255,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  resendTextDisabled: {
+    color: COLORS.text.tertiary,
+  },
   helperText: {
     color: COLORS.text.tertiary,
     fontSize: 14,
@@ -215,6 +289,9 @@ const styles = StyleSheet.create({
   },
   continueButtonTextActive: {
     color: COLORS.background,
+  },
+  continueButtonDisabled: {
+    opacity: 0.6,
   },
 });
 

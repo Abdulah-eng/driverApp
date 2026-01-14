@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -6,33 +6,80 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MapView, {Marker, Polyline} from 'react-native-maps';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Header from '../components/Header';
 import {COLORS} from '../utils/constants';
+import {databaseService} from '../services/databaseService';
 
 const {width} = Dimensions.get('window');
 
 const TripReceiptScreen = ({navigation, route}: any) => {
-  const trip = route?.params || {
-    totalFare: 13.88,
-    baseFare: 5.0,
-    distance: 5.2,
-    time: 15,
-    promoDiscount: 1.45,
-    paymentMethod: 'Card.... 4242',
-    driver: {
-      name: 'Zacharis Fredrick',
-      vehicle: 'Toyota Camry',
-      plate: 'ABC-3244',
-    },
-    pickup: '456 Oak Ave, Brooklyn, NY',
-    destination: '456 Oak Ave, Brooklyn, NY',
-    pickupTime: '2:30 PM',
-    duration: 15,
-    distanceKm: 5.2,
+  const [trip, setTrip] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const tripId = route?.params?.tripId;
+  const fare = route?.params?.fare || 0;
+  const tipAmount = route?.params?.tipAmount || 0;
+
+  useEffect(() => {
+    loadTripData();
+  }, [tripId]);
+
+  const loadTripData = async () => {
+    if (tripId) {
+      try {
+        const tripData = await databaseService.getTrip(tripId);
+        if (tripData) {
+          setTrip({
+            totalFare: fare || tripData.fare,
+            baseFare: (fare || tripData.fare) * 0.4,
+            distance: 5.2,
+            time: 15,
+            promoDiscount: 0,
+            paymentMethod: 'Card.... 4242',
+            driver: {
+              name: tripData.passengerName || 'Passenger',
+              vehicle: 'Standard Vehicle',
+              plate: 'ABC-3244',
+            },
+            pickup: tripData.from,
+            destination: tripData.to,
+            pickupTime: new Date().toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit',
+            }),
+            duration: 15,
+            distanceKm: 5.2,
+          });
+        }
+      } catch (error) {
+        console.error('Error loading trip:', error);
+      }
+    } else {
+      // Fallback to route params if no tripId
+      setTrip({
+        totalFare: fare || 13.88,
+        baseFare: (fare || 13.88) * 0.4,
+        distance: 5.2,
+        time: 15,
+        promoDiscount: 0,
+        paymentMethod: 'Card.... 4242',
+        driver: {
+          name: 'Passenger',
+          vehicle: 'Standard Vehicle',
+          plate: 'ABC-3244',
+        },
+        pickup: '456 Oak Ave, Brooklyn, NY',
+        destination: '456 Oak Ave, Brooklyn, NY',
+        pickupTime: '2:30 PM',
+        duration: 15,
+        distanceKm: 5.2,
+      });
+    }
+    setLoading(false);
   };
 
   const region = {
@@ -52,11 +99,16 @@ const TripReceiptScreen = ({navigation, route}: any) => {
         title="Trip receipt"
       />
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
-        <View style={styles.mapContainer}>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      ) : trip ? (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.mapContainer}>
           <MapView
             style={styles.map}
             initialRegion={region}
@@ -178,7 +230,8 @@ const TripReceiptScreen = ({navigation, route}: any) => {
             </TouchableOpacity>
           </View>
         </View>
-      </ScrollView>
+        </ScrollView>
+      ) : null}
     </SafeAreaView>
   );
 };
@@ -346,6 +399,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: COLORS.text.primary,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

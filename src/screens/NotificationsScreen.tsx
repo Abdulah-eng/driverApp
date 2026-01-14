@@ -1,57 +1,48 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Header from '../components/Header';
 import {COLORS} from '../utils/constants';
+import {useAuth} from '../context/AuthContext';
+import {databaseService} from '../services/databaseService';
 
 const NotificationsScreen = ({navigation}: any) => {
   const [filter, setFilter] = useState<'All' | 'Unread'>('All');
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const {user} = useAuth();
 
-  const notifications = [
-    {
-      id: '1',
-      type: 'trip',
-      title: 'Trip completed',
-      message: 'Thanks for riding with Michael! Rate your experience.',
-      time: '2 hours ago',
-      read: false,
-      icon: 'location-on',
-    },
-    {
-      id: '2',
-      type: 'promo',
-      title: 'Weekend special!',
-      message: '20% off all rides this Saturday and Sunday. Use code WEEKEND20',
-      time: '2 hours ago',
-      read: false,
-      icon: 'card-giftcard',
-    },
-    {
-      id: '3',
-      type: 'receipt',
-      title: 'Receipt ready',
-      message: 'Your receipt for the trip to Times Square is ready to download',
-      time: '3 hours ago',
-      read: true,
-      icon: 'location-on',
-    },
-    {
-      id: '4',
-      type: 'feature',
-      title: 'New feature: Multi...',
-      message: 'Your receipt for the trip to Times Square is ready to download',
-      time: '1 day ago',
-      read: true,
-      icon: 'help-outline',
-    },
-  ];
+  useEffect(() => {
+    loadNotifications();
+  }, [user, filter]);
+
+  const loadNotifications = async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const fetchedNotifications = await databaseService.getNotifications(
+        user.id,
+        filter === 'Unread',
+      );
+      setNotifications(fetchedNotifications);
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const unreadCount = notifications.filter(n => !n.read).length;
   const filteredNotifications =
@@ -59,12 +50,42 @@ const NotificationsScreen = ({navigation}: any) => {
       ? notifications
       : notifications.filter(n => !n.read);
 
-  const markAsRead = (id: string) => {
-    // TODO: Implement mark as read
+  const markAsRead = async (id: string) => {
+    try {
+      const {error} = await databaseService.markNotificationAsRead(id);
+      if (error) {
+        console.error('Failed to mark notification as read:', error);
+        return;
+      }
+      
+      // Update local state
+      setNotifications(prev =>
+        prev.map(notif =>
+          notif.id === id ? {...notif, read: true} : notif,
+        ),
+      );
+    } catch (err) {
+      console.error('Failed to mark notification as read:', err);
+    }
   };
 
-  const markAllAsRead = () => {
-    // TODO: Implement mark all as read
+  const markAllAsRead = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const {error} = await databaseService.markAllNotificationsAsRead(user.id);
+      if (error) {
+        console.error('Failed to mark all notifications as read:', error);
+        return;
+      }
+      
+      // Update local state
+      setNotifications(prev =>
+        prev.map(notif => ({...notif, read: true})),
+      );
+    } catch (err) {
+      console.error('Failed to mark all notifications as read:', err);
+    }
   };
 
   if (filter === 'Unread' && filteredNotifications.length === 0) {
@@ -135,11 +156,18 @@ const NotificationsScreen = ({navigation}: any) => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
-        {filteredNotifications.map(notification => (
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshing={loading}
+          onRefresh={loadNotifications}>
+          {filteredNotifications.map(notification => (
           <TouchableOpacity
             key={notification.id}
             style={[
@@ -169,8 +197,9 @@ const NotificationsScreen = ({navigation}: any) => {
               </TouchableOpacity>
             )}
           </TouchableOpacity>
-        ))}
-      </ScrollView>
+          ))}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 };
@@ -314,6 +343,11 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     fontSize: 14,
     color: COLORS.text.tertiary,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

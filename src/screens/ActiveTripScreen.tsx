@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -6,17 +6,82 @@ import {
   TouchableOpacity,
   TextInput,
   Dimensions,
+  Linking,
+  Alert,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import MapView, {Marker, Polyline} from 'react-native-maps';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Header from '../components/Header';
 import {COLORS} from '../utils/constants';
+import {databaseService} from '../services/databaseService';
+import {useAuth} from '../context/AuthContext';
 
 const {width, height} = Dimensions.get('window');
 
-const ActiveTripScreen = ({navigation}: any) => {
+const ActiveTripScreen = ({navigation, route}: any) => {
   const [message, setMessage] = useState('');
+  const [trip, setTrip] = useState<any>(null);
+  const {user} = useAuth();
+  const tripId = route?.params?.tripId;
+
+  useEffect(() => {
+    if (tripId) {
+      loadTrip();
+    }
+  }, [tripId]);
+
+  const loadTrip = async () => {
+    if (!tripId) return;
+    try {
+      const tripData = await databaseService.getTrip(tripId);
+      if (tripData) {
+        setTrip(tripData);
+      }
+    } catch (error) {
+      console.error('Error loading trip:', error);
+    }
+  };
+
+  const handleCompleteTrip = async () => {
+    if (!tripId || !user?.id) return;
+
+    try {
+      // Update trip status to completed
+      await databaseService.updateTripStatus(tripId, 'completed');
+
+      // Get trip details to create earning
+      const tripData = await databaseService.getTrip(tripId);
+      if (tripData) {
+        // Create earning record
+        await databaseService.createEarning({
+          driver_id: user.id,
+          trip_id: tripId,
+          amount: tripData.fare,
+          type: 'trip',
+          description: `Trip from ${tripData.from} to ${tripData.to}`,
+        });
+
+        // Update user's total trips count
+        // This would typically be done via a database trigger, but we can do it here too
+      }
+
+      navigation.navigate('TripCompletion', {
+        tripId,
+        fare: tripData?.fare || 0,
+      });
+    } catch (error) {
+      Alert.alert('Error', 'Failed to complete trip. Please try again.');
+    }
+  };
+
+  const handleCallDriver = () => {
+    if (trip?.passengerPhone) {
+      Linking.openURL(`tel:${trip.passengerPhone}`);
+    } else {
+      Alert.alert('Info', 'Driver phone number not available');
+    }
+  };
 
   const region = {
     latitude: 41.7151,
@@ -26,7 +91,7 @@ const ActiveTripScreen = ({navigation}: any) => {
   };
 
   const driver = {
-    name: 'Zacharis Fredrick',
+    name: trip?.passengerName || 'Passenger',
     rating: 5.0,
     totalRatings: 724,
     totalRides: 5148,
@@ -118,13 +183,21 @@ const ActiveTripScreen = ({navigation}: any) => {
         </View>
 
         <View style={styles.actionButtons}>
-          <TouchableOpacity style={styles.callButton}>
+          <TouchableOpacity style={styles.callButton} onPress={handleCallDriver}>
             <Icon name="phone" size={20} color={COLORS.text.primary} />
-            <Text style={styles.callButtonText}>Call Driver</Text>
+            <Text style={styles.callButtonText}>Call Passenger</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.sosButton}>
+          <TouchableOpacity
+            style={styles.sosButton}
+            onPress={() => navigation.navigate('EmergencyAssistance')}>
             <Icon name="notifications" size={20} color={COLORS.text.primary} />
             <Text style={styles.sosButtonText}>SOS</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.completeButton}
+            onPress={handleCompleteTrip}>
+            <Icon name="check-circle" size={20} color={COLORS.text.primary} />
+            <Text style={styles.completeButtonText}>Complete Trip</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -247,9 +320,12 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
   },
   callButton: {
+    flex: 1,
+    minWidth: '30%',
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -266,6 +342,7 @@ const styles = StyleSheet.create({
   },
   sosButton: {
     flex: 1,
+    minWidth: '30%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -275,6 +352,23 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sosButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+  },
+  completeButton: {
+    flex: 1,
+    minWidth: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.success,
+    borderRadius: 12,
+    padding: 16,
+    gap: 8,
+    marginTop: 8,
+  },
+  completeButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.text.primary,
